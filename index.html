@@ -56,13 +56,13 @@
                 <div id="unity-progress-bar-full"></div>
             </div>
             <br>
-            <div id="loading-text">Loading game assets...</div>
+            <div id="loading-text">Loading madalin...</div>
         </div>
         <div id="unity-warning"></div>
     </div>
     <script>
         const message="Code reworked by onepointfive-REAL on github<br><br>"
-        document.querySelector("#loading-text").innerHTML = `${message}Loading unity 0%`;
+        document.querySelector("#loading-text").innerHTML = `${message}Loading madalin 0%`;
         
         var container = document.querySelector("#unity-container");
         var canvas = document.querySelector("#unity-canvas");
@@ -145,7 +145,7 @@
                     createUnityInstance(canvas, config, (progress) => {
                         progressBarFull.style.width = Math.floor(progress * 100) + "%";
                         let progressload = Math.floor(progress * 100);
-                        document.querySelector("#loading-text").innerHTML = `${message}Loading unity ${progressload}%`;
+                        document.querySelector("#loading-text").innerHTML = `${message}Loading madalin ${progressload}%`;
                     }).then((unityInstance) => {
                         myGameInstance = unityInstance;
                         loadingBar.style.display = "none";
