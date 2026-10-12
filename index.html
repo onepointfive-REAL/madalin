@@ -1,69 +1,188 @@
 <!DOCTYPE html>
+<script>
+// make it work EVERYWHERE! (monkey patch by onepointfive-real)
+(function() {
+    // Dynamically figure out the base path whether on localhost or GitHub Pages
+    const basePath = window.location.pathname.substring(0, window.location.pathname.lastIndexOf('/') + 1);
+
+    // 1. Intercept the XMLHttpRequest API (Unity's asset loader)
+    const OriginalXHR = window.XMLHttpRequest;
+    
+    function PatchedXHR() {
+        const xhr = new OriginalXHR();
+        const originalOpen = xhr.open;
+
+        xhr.open = function(method, url, async, user, password) {
+            // Redirect smoothly to the correct subfolder location
+            if (typeof url === 'string' && url.includes('https://fake-secure-local/')) {
+                url = url.replace('https://fake-secure-local/', './');
+            }
+            return originalOpen.apply(this, [method, url, async, user, password]);
+        };
+        return xhr;
+    }
+    window.XMLHttpRequest = PatchedXHR;
+    Object.assign(window.XMLHttpRequest, OriginalXHR);
+
+    // 2. Intercept the modern Fetch API (for newer Unity configurations)
+    const originalFetch = window.fetch;
+    window.fetch = function(input, init) {
+        if (typeof input === 'string' && input.includes('https://fake-secure-local/')) {
+            input = input.replace('https://fake-secure-local/', './');
+        } else if (input instanceof Request && input.url.includes('https://fake-secure-local/')) {
+            const localUrl = input.url.replace('https://fake-secure-local/', './');
+            input = new Request(localUrl, input);
+        }
+        return originalFetch(input, init);
+    };
+})();
+</script>
 <html lang="en-us">
-  <head>
+<head>
+    <title>Madalin 2 HTML5</title>
     <meta charset="utf-8">
+    <meta name="robots" content="noindex, nofollow">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <title>Unity WebGL Player | Madalin Cars Multiplayer</title>
-	<meta name="description" content="" />
-	<link rel="canonical" href="https://www.madalingames.com/madalin-cars-multiplayer/" />
-    <link rel="shortcut icon" href="TemplateData/favicon.ico">
-    <link rel="stylesheet" href="TemplateData/style.css">
-  </head>
-  <body>
-    <div id="unity-container" class="unity-desktop" style="width: 100%; height: 100%; overflow: hidden">
-      <canvas id="unity-canvas" style="width: 100%; height: 100%; overflow: hidden"></canvas>
-      <div id="unity-loading-bar">
-        <div id="unity-logo"></div>
-        <div id="unity-progress-bar-empty">
-          <div id="unity-progress-bar-full"></div>
+    <link rel="stylesheet" href="./style.css">
+
+</head>
+<body>
+    <div id="unity-container">
+        <canvas id="unity-canvas" style="position: absolute; width: 100%; height: 100%"></canvas>
+        <div id="unity-loading-bar">
+            <div id="unity-logo">
+            </div>
+            <div id="unity-progress-bar-empty">
+                <div id="unity-progress-bar-full"></div>
+            </div>
+            <br>
+            <div id="loading-text">Loading game assets...</div>
         </div>
-      </div>
-      <div id="unity-mobile-warning">
-        WebGL builds are not supported on mobile devices.
-      </div>
+        <div id="unity-warning"></div>
     </div>
     <script>
-      var buildUrl = "Build";
-      var loaderUrl = buildUrl + "/304bc71d77b7acd6469bb5cc0730073b.js";
-      var config = {
-        dataUrl: buildUrl + "/97a54d9b4b7525d0f2328e0cbb512980.data",
-        frameworkUrl: buildUrl + "/4e20d7eb8e868230cafe4baff2e177d4.js",
-        codeUrl: buildUrl + "/03cde5b9e5b1a5b23fbab20d045d4958.wasm",
-        streamingAssetsUrl: "StreamingAssets",
-        companyName: "Madalin Games",
-        productName: "Madalin Cars Multiplayer",
-        productVersion: "2.0.0",
-      };
+        const message="Code reworked by onepointfive-REAL on github<br><br>"
+        document.querySelector("#loading-text").innerHTML = `${message}Loading unity 0%`;
+        
+        var container = document.querySelector("#unity-container");
+        var canvas = document.querySelector("#unity-canvas");
+        var loadingBar = document.querySelector("#unity-loading-bar");
+        var progressBarFull = document.querySelector("#unity-progress-bar-full");
+        var warningBanner = document.querySelector("#unity-warning");
 
-      var container = document.querySelector("#unity-container");
-      var canvas = document.querySelector("#unity-canvas");
-      var loadingBar = document.querySelector("#unity-loading-bar");
-      var progressBarFull = document.querySelector("#unity-progress-bar-full");
-      var mobileWarning = document.querySelector("#unity-mobile-warning");
+        let myGameInstance = null;
+        let isAdShown = false;
+        let bannerTime = 5000
+        
+        function unityShowBanner(msg, type) {
+            var div = document.createElement('div');
+            div.innerHTML = msg;
 
-      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-        container.className = "unity-mobile";
-        config.devicePixelRatio = 1;
-        mobileWarning.style.display = "block";
-        setTimeout(() => {
-          mobileWarning.style.display = "none";
-        }, 5000);
-      }
-      canvas.style.background = "url('" + buildUrl + "/821652a7ba86ba5731dc5409d399d903.jpg') center / cover";
-      loadingBar.style.display = "block";
+            if (type == 'error') {
+                div.style = 'color: white; background: red; padding: 10px; border-radius: 5px;';
+            } else {
+                if (type == 'warning') {
+                    div.style = 'color: black; background: yellow; padding: 10px; border-radius: 5px;';
+                }
 
-      var script = document.createElement("script");
-      script.src = loaderUrl;
-      script.onload = () => {
-        createUnityInstance(canvas, config, (progress) => {
-          progressBarFull.style.width = 100 * progress + "%";
-        }).then((unityInstance) => {
-          loadingBar.style.display = "none";
-        }).catch((message) => {
-          alert(message);
+                if (type == 'message') {
+                    div.style = 'color: white; background: green; padding: 10px; border-radius: 5px;';
+                }
+
+                setTimeout(function() {
+                    warningBanner.style.opacity = '0';
+
+                    setTimeout(function() {
+                        if (div.parentNode) {
+                            warningBanner.removeChild(div);
+                        }
+
+                        if (!warningBanner.children.length) {
+                            warningBanner.style.display = 'none';
+                        }
+
+                        warningBanner.style.opacity = '1';
+                    }, 500);
+                }, bannerTime);
+            }
+
+            warningBanner.appendChild(div);
+
+            // Fade in
+            warningBanner.style.display = 'block';
+            warningBanner.style.opacity = '0';
+
+            requestAnimationFrame(function() {
+                requestAnimationFrame(function() {
+                    warningBanner.style.opacity = '1';
+                });
+            });
+        }
+        const old = bannerTime;
+        bannerTime = 5000;
+        unityShowBanner(`Use "=" to enter fullscreen`, "message");
+        bannerTime = old;
+        var loaderUrl = "./Build/loader.js";
+
+        async function initializeGame() {
+            try {
+
+                var config = {
+                    dataUrl: "./Build/madalin_data.data",
+                    frameworkUrl: "./Build/framework.js",
+                    codeUrl: "./Build/madalin_wasm.wasm",
+                    streamingAssetsUrl: "https://fake-secure-local/StreamingAssets",
+                    companyName: "onepointfive-REAL",
+                    productName: "Madalin Stunt Cars 2",
+                    productVersion: "2.0",
+                    showBanner: unityShowBanner,
+                };
+
+                var script = document.createElement("script");
+                script.src = loaderUrl;
+                script.onload = () => {
+                    progressBarFull.style.width = 0 + "%";
+                    createUnityInstance(canvas, config, (progress) => {
+                        progressBarFull.style.width = Math.floor(progress * 100) + "%";
+                        let progressload = Math.floor(progress * 100);
+                        document.querySelector("#loading-text").innerHTML = `${message}Loading unity ${progressload}%`;
+                    }).then((unityInstance) => {
+                        myGameInstance = unityInstance;
+                        loadingBar.style.display = "none";
+                    }).catch((message) => {
+                        alert(message);
+                    });
+                };
+
+                document.body.appendChild(script);
+            } catch (error) {
+                console.error("Game initialization failed:", error);
+            }
+        }
+
+        initializeGame();
+        
+        document.addEventListener('keydown', function(event) {
+            if (event.key === '=') {
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen().then(function() {
+                        const old = bannerTime;
+                        bannerTime = 7000;
+                        unityShowBanner("Entered Fullscreen", "message");
+                        bannerTime = old;
+                    }).catch(function(error) {
+                        console.error("Fullscreen failed:", error);
+                    });
+                } else {
+                    document.exitFullscreen().then(function() {
+                        const old = bannerTime;
+                        bannerTime = 3000;
+                        unityShowBanner("Exited Fullscreen", "message");
+                        bannerTime = old;
+                    });
+                }
+            }
         });
-      };
-      document.body.appendChild(script);
     </script>
-  </body>
+</body>
 </html>
